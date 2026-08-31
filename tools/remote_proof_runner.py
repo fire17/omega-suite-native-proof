@@ -452,7 +452,7 @@ jobs:
         env: {FUSION_SOURCE_MOUNT_ROOT: "${{ runner.temp }}/export/sources"}
         run: |
           set -euo pipefail
-          python3 "$RUNNER_TEMP/installed/libexec/fusion/tools/clean_reproduce.py" --tuple "${{ inputs.tuple }}" --platform darwin-x86_64 --runtime-closure-root "$RUNNER_TEMP/export/runtime-closures" --output "$RUNNER_TEMP/observation"
+          python3 "$RUNNER_TEMP/export/sources/fusion/repo/tools/clean_reproduce.py" --tuple "${{ inputs.tuple }}" --platform darwin-x86_64 --runtime-closure-root "$RUNNER_TEMP/export/runtime-closures" --output "$RUNNER_TEMP/observation"
       - name: Verify readback
         run: |
           set -euo pipefail
