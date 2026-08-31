@@ -448,8 +448,6 @@ jobs:
         run: |
           set -euo pipefail
           python3 "$RUNNER_TEMP/export/sources/fusion/repo/tools/install_suite_control.py" --prefix "$RUNNER_TEMP/installed" --source-root "$RUNNER_TEMP/export/sources/fusion/repo" --om-root "$RUNNER_TEMP/export/sources/om/repo" --mom-root "$RUNNER_TEMP/export/sources/mom/repo" --nona-root "$RUNNER_TEMP/export/sources/nona/repo" --omega-root "$RUNNER_TEMP/export/sources/omega/repo"
-          mkdir -p "$RUNNER_TEMP/installed/libexec/fusion/.deify/architecture/releases/runtime-closures"
-          cp -R "$RUNNER_TEMP/export/runtime-closures/." "$RUNNER_TEMP/installed/libexec/fusion/.deify/architecture/releases/runtime-closures/"
       - name: Run offline tuple-bound observation
         env: {FUSION_SOURCE_MOUNT_ROOT: "${{ runner.temp }}/export/sources"}
         run: |
