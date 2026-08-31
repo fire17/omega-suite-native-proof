@@ -35,13 +35,14 @@ jobs:
           set +e
           python3 "$RUNNER_TEMP/installed/libexec/fusion/tools/clean_reproduce.py" --release-input-root "$RUNNER_TEMP/export/release-inputs" --tuple "${{ inputs.tuple }}" --platform darwin-x86_64 --runtime-closure-root "$RUNNER_TEMP/export/runtime-closures" --output "$RUNNER_TEMP/observation"
           echo "$?" > "$RUNNER_TEMP/observation-exit-code"
+          tar -C "$RUNNER_TEMP" -czf "$RUNNER_TEMP/observation.tar.gz" observation
           exit 0
       - name: Upload raw observation
         uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
         with:
           name: "omega-native-intel-raw-${{ inputs.source_sha256 }}"
           path: |
-            ${{ runner.temp }}/observation
+            ${{ runner.temp }}/observation.tar.gz
             ${{ runner.temp }}/observation-exit-code
           if-no-files-found: error
           retention-days: 30
