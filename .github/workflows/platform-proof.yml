@@ -1,0 +1,50 @@
+name: Omega encrypted native Darwin Intel observation
+on:
+  workflow_dispatch:
+    inputs:
+      tuple: {required: true, type: string}
+      source_path: {required: true, type: string}
+      source_sha256: {required: true, type: string}
+permissions: {contents: read}
+jobs:
+  native-intel:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with: {persist-credentials: false}
+      - name: Verify immutable input and native Intel boundary
+        env: {SOURCE_PATH: "${{ inputs.source_path }}", SOURCE_SHA256: "${{ inputs.source_sha256 }}", OMEGA_TRANSFER_KEY: "${{ secrets.OMEGA_TRANSFER_KEY }}"}
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_PATH" =~ ^input/transfer-[0-9a-f]{64}\.tar$ ]]
+          [[ "$SOURCE_SHA256" =~ ^[0-9a-f]{64}$ ]]
+          echo "$SOURCE_SHA256  $SOURCE_PATH" | shasum -a 256 -c -
+          test -n "$OMEGA_TRANSFER_KEY"
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -salt -md sha256 -pass env:OMEGA_TRANSFER_KEY -in "$SOURCE_PATH" -out "$RUNNER_TEMP/transfer.tar"
+          python3 tools/remote_proof_runner.py verify-transfer --archive "$RUNNER_TEMP/transfer.tar" --extract "$RUNNER_TEMP/export"
+          python3 tools/remote_proof_runner.py assert-runner
+      - name: Install exact Fusion closure
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/export/sources/fusion/repo/tools/install_suite_control.py" --prefix "$RUNNER_TEMP/installed" --source-root "$RUNNER_TEMP/export/sources/fusion/repo" --om-root "$RUNNER_TEMP/export/sources/om/repo" --mom-root "$RUNNER_TEMP/export/sources/mom/repo" --nona-root "$RUNNER_TEMP/export/sources/nona/repo" --omega-root "$RUNNER_TEMP/export/sources/omega/repo"
+          mkdir -p "$RUNNER_TEMP/installed/libexec/fusion/.deify/architecture/releases/runtime-closures"
+          cp -R "$RUNNER_TEMP/export/runtime-closures/." "$RUNNER_TEMP/installed/libexec/fusion/.deify/architecture/releases/runtime-closures/"
+      - name: Run offline tuple-bound observation
+        env: {FUSION_SOURCE_MOUNT_ROOT: "${{ runner.temp }}/export/sources"}
+        run: |
+          set -euo pipefail
+          python3 "$RUNNER_TEMP/installed/libexec/fusion/tools/clean_reproduce.py" --tuple "${{ inputs.tuple }}" --platform darwin-x86_64 --runtime-closure-root "$RUNNER_TEMP/export/runtime-closures" --output "$RUNNER_TEMP/observation"
+      - name: Verify readback
+        run: |
+          set -euo pipefail
+          python3 tools/remote_proof_runner.py verify-readback --root "$RUNNER_TEMP/observation" --tuple "${{ inputs.tuple }}" --repo "$GITHUB_REPOSITORY" --workflow-ref "$GITHUB_SHA" --run-id "$GITHUB_RUN_ID" --run-attempt "$GITHUB_RUN_ATTEMPT" --transfer-sha256 "${{ inputs.source_sha256 }}" --output "$RUNNER_TEMP/receipt.json"
+      - uses: actions/upload-artifact@65462800fd760344b1a7b4382951275a0abb4808
+        with:
+          name: "omega-native-intel-observation-${{ inputs.source_sha256 }}"
+          path: |
+            ${{ runner.temp }}/observation
+            ${{ runner.temp }}/receipt.json
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
