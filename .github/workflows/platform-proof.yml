@@ -1,5 +1,5 @@
 name: Omega encrypted native Darwin Intel observation
-on:
+"on":
   workflow_dispatch:
     inputs:
       tuple: {required: true, type: string}
