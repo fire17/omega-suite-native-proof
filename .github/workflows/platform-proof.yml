@@ -12,7 +12,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
-        with: {persist-credentials: false}
+        with: {persist-credentials: false, lfs: true}
       - name: Verify immutable input and native Intel boundary
         env: {SOURCE_PATH: "${{ inputs.source_path }}", SOURCE_SHA256: "${{ inputs.source_sha256 }}", OMEGA_TRANSFER_KEY: "${{ secrets.OMEGA_TRANSFER_KEY }}"}
         run: |
