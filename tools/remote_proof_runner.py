@@ -25,13 +25,20 @@ from typing import Mapping, Sequence
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from supervisor.releases import canonical  # noqa: E402
-from supervisor.validation import content_cid  # noqa: E402
-from supervisor.releases import (load_product_runtime_closure,
-                                 runtime_closure_cas_paths,
-                                 validate_product_release_candidate)  # noqa: E402
-from tools.suite_control import (configure_source_roots, load_compatibility_proposal,
-                                 load_release_candidate_tuple)  # noqa: E402
+try:
+    from supervisor.releases import canonical, load_product_runtime_closure, runtime_closure_cas_paths, validate_product_release_candidate  # noqa: E402
+    from supervisor.validation import content_cid  # noqa: E402
+    from tools.suite_control import configure_source_roots, load_compatibility_proposal, load_release_candidate_tuple  # noqa: E402
+except ModuleNotFoundError:
+    # Generated transport repositories intentionally carry only this verifier and encrypted input.
+    def canonical(value: object) -> bytes:
+        return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode("utf-8", "strict")
+
+    def content_cid(value: Mapping[str, object]) -> str:
+        return "sha256:" + hashlib.sha256(canonical({key: item for key, item in value.items() if key != "cid"})).hexdigest()
+
+    load_product_runtime_closure = runtime_closure_cas_paths = validate_product_release_candidate = None
+    configure_source_roots = load_compatibility_proposal = load_release_candidate_tuple = None
 
 PRODUCTS = ("om", "mom", "nona", "omega")
 DETAIL_SCHEMA = "suite.platform_observation"
@@ -286,6 +293,8 @@ def verify_transfer_bytes(data: bytes) -> dict[str, object]:
 def prepare(tuple_cid: str, output: Path) -> dict[str, object]:
     if not CID.fullmatch(tuple_cid):
         raise RemoteProofError("remote.tuple_unpinned")
+    if load_release_candidate_tuple is None or validate_product_release_candidate is None or load_compatibility_proposal is None or runtime_closure_cas_paths is None or load_product_runtime_closure is None:
+        raise RemoteProofError("remote.source_commands_unavailable")
     try:
         candidate_tuple = load_release_candidate_tuple(tuple_cid, verify_sources=False)
         products = candidate_tuple["products"]
@@ -627,11 +636,14 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        roots = configure_source_roots(args.source_root)
-        global ROOT, PRODUCT_ROOTS, RUNTIME_CLOSURES
-        ROOT = roots["fusion"]
-        PRODUCT_ROOTS = {name: roots[name] for name in PRODUCTS}
-        RUNTIME_CLOSURES = ROOT / ".deify" / "architecture" / "releases" / "runtime-closures"
+        if args.command in {"prepare", "prepare-repo", "prepare-public-repo"}:
+            if configure_source_roots is None:
+                raise RemoteProofError("remote.source_commands_unavailable")
+            roots = configure_source_roots(args.source_root)
+            global ROOT, PRODUCT_ROOTS, RUNTIME_CLOSURES
+            ROOT = roots["fusion"]
+            PRODUCT_ROOTS = {name: roots[name] for name in PRODUCTS}
+            RUNTIME_CLOSURES = ROOT / ".deify" / "architecture" / "releases" / "runtime-closures"
         if args.command == "prepare": result = prepare(args.tuple, args.output)
         elif args.command == "verify-transfer": result = verify_transfer(args.archive, args.extract)
         elif args.command == "assert-runner": result = assert_runner()
